@@ -7,14 +7,19 @@ const Invitados = () => {
   const [boletosExtraAdultos, setBoletosExtraAdultos] = useState(0);
   const [boletosExtraNinos, setBoletosExtraNinos] = useState(0);
   const [acompanantes, setAcompanantes] = useState([]);
+  const [relacionarCon, setRelacionarCon] = useState([]);
   const [editandoId, setEditandoId] = useState(null);
 
   useEffect(() => {
+    fetchInvitados();
+  }, []);
+
+  const fetchInvitados = () => {
     axios
       .get("http://localhost:5000/api/invitados")
       .then((res) => setInvitados(res.data))
       .catch((err) => console.error("Error al obtener invitados:", err));
-  }, []);
+  };
 
   const handleAgregarAcompanante = () => {
     setAcompanantes([...acompanantes, { nombre: "", esNino: false }]);
@@ -32,6 +37,17 @@ const Invitados = () => {
     setAcompanantes(nuevos);
   };
 
+  const handleRelacionChange = (e) => {
+    const options = e.target.options;
+    const selected = [];
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].selected) {
+        selected.push(options[i].value);
+      }
+    }
+    setRelacionarCon(selected);
+  };
+
   const handleAgregarInvitado = () => {
     if (!nombre.trim()) {
       alert("El nombre es obligatorio");
@@ -43,16 +59,14 @@ const Invitados = () => {
       acompanantes,
       boletosExtraAdultos: Number(boletosExtraAdultos),
       boletosExtraNinos: Number(boletosExtraNinos),
+      relacionarCon
     };
 
     axios
       .post("http://localhost:5000/api/invitados", nuevoInvitado)
       .then((res) => {
         setInvitados([...invitados, res.data]);
-        setNombre("");
-        setBoletosExtraAdultos(0);
-        setBoletosExtraNinos(0);
-        setAcompanantes([]);
+        resetForm();
       })
       .catch((err) => console.error("Error al agregar invitado:", err));
   };
@@ -74,6 +88,7 @@ const Invitados = () => {
     setBoletosExtraAdultos(invitado.boletosExtraAdultos || 0);
     setBoletosExtraNinos(invitado.boletosExtraNinos || 0);
     setAcompanantes(invitado.acompanantes || []);
+    setRelacionarCon(invitado.relacionarCon || []);
   };
 
   const guardarEdicion = () => {
@@ -82,6 +97,7 @@ const Invitados = () => {
       acompanantes,
       boletosExtraAdultos: Number(boletosExtraAdultos),
       boletosExtraNinos: Number(boletosExtraNinos),
+      relacionarCon
     };
 
     axios
@@ -93,12 +109,17 @@ const Invitados = () => {
       .catch((err) => console.error("Error al editar:", err));
   };
 
-  const cancelarEdicion = () => {
-    setEditandoId(null);
+  const resetForm = () => {
     setNombre("");
     setBoletosExtraAdultos(0);
     setBoletosExtraNinos(0);
     setAcompanantes([]);
+    setRelacionarCon([]);
+  };
+
+  const cancelarEdicion = () => {
+    setEditandoId(null);
+    resetForm();
   };
 
   const totalAdultos = invitados.reduce(
@@ -206,6 +227,28 @@ const Invitados = () => {
           </div>
         </div>
 
+        {/* Relaciones con otros invitados */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Relacionar con (mantén Ctrl para seleccionar múltiples)</label>
+          <select 
+            multiple 
+            value={relacionarCon}
+            onChange={handleRelacionChange}
+            className="w-full border p-2 rounded h-auto min-h-[100px]"
+          >
+            {invitados
+              .filter(inv => !editandoId || inv._id !== editandoId) // Excluir al invitado actual en edición
+              .map(inv => (
+                <option key={inv._id} value={inv._id}>
+                  {inv.nombre} ({inv.acompanantes.length + 1} personas)
+                </option>
+              ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Seleccionados: {relacionarCon.length}
+          </p>
+        </div>
+
         {/* Botones */}
         {editandoId ? (
           <div className="flex gap-4">
@@ -238,6 +281,13 @@ const Invitados = () => {
         {invitados.map((inv) => {
           const adultos = 1 + inv.acompanantes.filter((a) => !a.esNino).length + (inv.boletosExtraAdultos || 0);
           const ninos = inv.acompanantes.filter((a) => a.esNino).length + (inv.boletosExtraNinos || 0);
+          
+          // Obtener nombres de relacionados
+          const relacionados = inv.relacionarCon?.map(relId => {
+            const relInvitado = invitados.find(i => i._id === relId);
+            return relInvitado ? relInvitado.nombre : "Invitado eliminado";
+          });
+
           return (
             <li key={inv._id} className="bg-white p-4 rounded-lg shadow-md flex items-center justify-between space-x-6">
               {/* Nombre y detalles del invitado */}
@@ -253,6 +303,11 @@ const Invitados = () => {
                 {(inv.boletosExtraAdultos > 0 || inv.boletosExtraNinos > 0) && (
                   <p className="text-sm mt-1 text-gray-600">
                     + {inv.boletosExtraAdultos} boletos adultos, {inv.boletosExtraNinos} niños
+                  </p>
+                )}
+                {relacionados?.length > 0 && (
+                  <p className="text-sm mt-1 text-purple-600">
+                    Relacionado con: {relacionados.join(", ")}
                   </p>
                 )}
               </div>

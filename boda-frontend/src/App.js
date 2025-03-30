@@ -12,11 +12,13 @@ import Musica from "./pages/Musica";
 import Mesas from "./pages/Mesas";
 
 function App() {
+  
   const [openGestión, setOpenGestión] = useState(false);
   const [openOrganización, setOpenOrganización] = useState(false);
   const [espacios, setEspacios] = useState([]);
   const [currentLayoutId, setCurrentLayoutId] = useState(null);
   const [loading, setLoading] = useState(true);
+const [syncStatus, setSyncStatus] = useState("Cargando...");
 
   // Función para actualizar los espacios en el backend
   const updateEspacios = async (nuevosEspacios) => {
@@ -34,44 +36,94 @@ function App() {
     }
   };
 
-  // UseEffect para manejar la carga y creación del layout vacío
   useEffect(() => {
     const initializeLayout = async () => {
+      setLoading(true);
+      setSyncStatus("Cargando distribución...");
+      
       try {
         // 1. Intenta cargar el layout existente
-        const { data: existingLayout } = await axios.get("http://localhost:5000/api/layout");
+        const { data: existingLayout } = await axios.get(
+          "http://localhost:5000/api/layout",
+          { timeout: 5000 } // Timeout de 5 segundos
+        );
         
-        // 2. Si no existe o está vacío, crea uno nuevo
-        if (!existingLayout || !existingLayout.espacios || existingLayout.espacios.length === 0) {
-          console.log("Creando nuevo layout vacío...");
+        // 2. Verifica si el layout es válido (tiene 55 espacios)
+        const isValidLayout = existingLayout?.espacios?.length === 55 && 
+          existingLayout.espacios.every((esp, i) => esp.id === `espacio-${i}`);
+        
+        if (!isValidLayout) {
+          // 3. Si no es válido, crea uno nuevo
+          setSyncStatus("Creando layout nuevo...");
           const espaciosVacios = Array.from({ length: 55 }, (_, i) => ({
             id: `espacio-${i}`,
-            mesa: null
+            mesa: null,
+            nMesa: i + 1 // Asignamos número de mesa basado en posición
           }));
           
-          const { data: newLayout } = await axios.post("http://localhost:5000/api/layout", {
-            espacios: espaciosVacios
-          });
+          // Intenta conservar las mesas existentes si las hay
+          if (existingLayout?.espacios) {
+            espaciosVacios.forEach((espacio, i) => {
+              if (existingLayout.espacios[i]?.mesa) {
+                espacio.mesa = {
+                  ...existingLayout.espacios[i].mesa,
+                  nMesa: i + 1 // Aseguramos que tenga número de mesa
+                };
+              }
+            });
+          }
+          
+          const { data: newLayout } = await axios.post(
+            "http://localhost:5000/api/layout", 
+            { espacios: espaciosVacios }
+          );
           
           setEspacios(newLayout.espacios);
-          setCurrentLayoutId(newLayout.layoutId || newLayout._id);
-          console.log("Layout creado:", newLayout);
+          setCurrentLayoutId(newLayout._id);
+          setSyncStatus("Layout inicializado");
+          console.log("Nuevo layout creado:", newLayout);
         } else {
-          // 3. Si existe, úsalo
+          // 4. Si el layout es válido, úsalo
           setEspacios(existingLayout.espacios);
           setCurrentLayoutId(existingLayout._id);
-          console.log("Layout cargado:", existingLayout);
+          setSyncStatus("Layout cargado");
+          console.log("Layout existente cargado:", existingLayout);
         }
       } catch (error) {
         console.error("Error inicializando layout:", error);
-        // Puedes mostrar un mensaje al usuario aquí
+        setSyncStatus("Error, usando layout local");
+        
+        // 5. Fallback: crea un layout vacío en memoria
+        const espaciosVacios = Array.from({ length: 55 }, (_, i) => ({
+          id: `espacio-${i}`,
+          mesa: null,
+          nMesa: i + 1
+        }));
+        
+        setEspacios(espaciosVacios);
+        
+        // Intenta guardar el layout local en el backend
+        try {
+          const { data: newLayout } = await axios.post(
+            "http://localhost:5000/api/layout", 
+            { espacios: espaciosVacios }
+          );
+          setCurrentLayoutId(newLayout._id);
+        } catch (postError) {
+          console.error("Error guardando layout de respaldo:", postError);
+        }
       } finally {
         setLoading(false);
       }
     };
   
-    initializeLayout();
-  }, []);
+    // Agregamos un pequeño delay para evitar flashes de carga
+    const timer = setTimeout(() => {
+      initializeLayout();
+    }, 300);
+  
+    return () => clearTimeout(timer);
+  }, [setEspacios]);
 
   return (
     <Router>
