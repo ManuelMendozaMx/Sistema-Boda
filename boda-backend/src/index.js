@@ -22,9 +22,9 @@ const proveedoresRoutes = require('./routes/proveedores.routes');
 const documentosRoutes = require('./routes/documentos.routes');
 const inspiracionRoutes = require('./routes/inspiracion.routes');
 const musicaRoutes = require('./routes/musica.routes');
-const mesaRoutes = require('./routes/mesas.routes');
+const mesaRoutes = require('./routes/layout.routes');
 
-app.use("/api/mesas", mesaRoutes);
+app.use("/api/layout", mesaRoutes);
 app.use('/api/tareas', tareasRoutes);
 app.use('/api/gastos', gastosRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
@@ -35,10 +35,24 @@ app.use('/api/invitados', invitadosRoutes);
 
 
 
-// Conexión con MongoDB
-mongoose.connect(process.env.DATABASE_URL)
-  .then(() => console.log('🟢 MongoDB conectado con éxito'))
-  .catch((err) => console.error('Error al conectar MongoDB:', err));
+mongoose.connect("mongodb://localhost:27017/boda-db", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
+.then(async () => {
+  console.log("✅ Conectado a MongoDB");
+  
+  // Inicializar layout solo si es necesario
+  try {
+    //await Layout.init();
+    console.log("✅ Verificación de layout completada");
+  } catch (err) {
+    console.error("⚠️ Error verificando layout:", err);
+  }
+})
+.catch(err => console.error("❌ Error de conexión a MongoDB:", err));
+
+
 
 // Ruta base
 app.get('/test', async (req, res) => {

@@ -10,7 +10,11 @@ const invitadoSchema = new mongoose.Schema({
   boletosExtraAdultos: { type: Number, default: 0 },
   boletosExtraNinos: { type: Number, default: 0 },
   acompanantes: [acompananteSchema],
-  asignadoEnMesa: { type: Boolean, default: false } // << NUEVO CAMPO
+  asignadoEnMesa: { type: Boolean, default: false },
+  relacionarCon: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Invitado' 
+  }]
 });
 
 module.exports = mongoose.model("Invitado", invitadoSchema);

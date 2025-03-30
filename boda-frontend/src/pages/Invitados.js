@@ -239,36 +239,41 @@ const Invitados = () => {
           const adultos = 1 + inv.acompanantes.filter((a) => !a.esNino).length + (inv.boletosExtraAdultos || 0);
           const ninos = inv.acompanantes.filter((a) => a.esNino).length + (inv.boletosExtraNinos || 0);
           return (
-            <li key={inv._id} className="bg-white p-4 rounded shadow">
-              <p className="font-bold text-lg">{inv.nombre}</p>
-              <ul className="ml-4 text-sm text-gray-700 mt-2">
-                {inv.acompanantes?.map((a, idx) => (
-                  <li key={idx}>
-                    - {a.nombre} ({a.esNino ? "niño" : "adulto"})
-                  </li>
-                ))}
-              </ul>
-              {(inv.boletosExtraAdultos > 0 || inv.boletosExtraNinos > 0) && (
-                <p className="text-sm mt-1 text-gray-600">
-                  + {inv.boletosExtraAdultos} boletos adultos, {inv.boletosExtraNinos} niños
-                </p>
-              )}
-              <p className="text-sm mt-2 text-gray-800 font-medium">
-                Total: {adultos} adultos, {ninos} niños
-              </p>
-              <div className="mt-3 flex gap-4 text-sm">
-                <button
-                  onClick={() => iniciarEdicion(inv)}
-                  className="text-blue-600 hover:underline"
-                >
-                  Editar
-                </button>
-                <button
-                  onClick={() => handleEliminarInvitado(inv._id)}
-                  className="text-red-600 hover:underline"
-                >
-                  Eliminar
-                </button>
+            <li key={inv._id} className="bg-white p-4 rounded-lg shadow-md flex items-center justify-between space-x-6">
+              {/* Nombre y detalles del invitado */}
+              <div className="flex-1">
+                <p className="font-bold text-lg">{inv.nombre}</p>
+                <ul className="ml-4 text-sm text-gray-700 mt-2">
+                  {inv.acompanantes?.map((a, idx) => (
+                    <li key={idx}>
+                      - {a.nombre} ({a.esNino ? "niño" : "adulto"})
+                    </li>
+                  ))}
+                </ul>
+                {(inv.boletosExtraAdultos > 0 || inv.boletosExtraNinos > 0) && (
+                  <p className="text-sm mt-1 text-gray-600">
+                    + {inv.boletosExtraAdultos} boletos adultos, {inv.boletosExtraNinos} niños
+                  </p>
+                )}
+              </div>
+
+              {/* Total de adultos y niños */}
+              <div className="text-sm text-gray-800 font-medium flex flex-col items-end justify-between">
+                <p>Total: {adultos} adultos, {ninos} niños</p>
+                <div className="mt-3 flex gap-4 text-sm">
+                  <button
+                    onClick={() => iniciarEdicion(inv)}
+                    className="text-blue-600 hover:underline"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleEliminarInvitado(inv._id)}
+                    className="text-red-600 hover:underline"
+                  >
+                    Eliminar
+                  </button>
+                </div>
               </div>
             </li>
           );
