@@ -124,10 +124,10 @@ const MesaBase = ({
             {nMesa}
           </span>
           <span 
-  className="absolute text-[8px] top-1 right-1 bg-white text-gray-800 rounded-full w-4 h-4 flex items-center justify-center shadow"
->
-  {capacidad - totalOcupados.length}
-</span>
+            className="absolute text-[8px] top-1 right-1 bg-white text-gray-800 rounded-full w-4 h-4 flex items-center justify-center shadow"
+          >
+            {capacidad - totalOcupados.length}
+          </span>
         </>
       )}
     </div>
@@ -162,7 +162,6 @@ const MesaDraggable = (props) => {
     />
   );
 };
-
 
 const Mesa = (props) => <MesaBase {...props} />;
 
@@ -219,11 +218,23 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
   const [invitados, setInvitados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [syncStatus, setSyncStatus] = useState("Cargando...");
+  const [isMobileView, setIsMobileView] = useState(false);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } })
   );
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const ocupadosActuales = mesaSeleccionada?.invitadosAsignados?.reduce((acc, inv) => {
     const niños = inv.acompanantes?.filter(a => a.esNino)?.length || 0;
     const adultos = (inv.acompanantes?.length || 0) - niños + 1;
@@ -236,34 +247,30 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
         setLoading(true);
         setSyncStatus("Cargando datos...");
         
-        // 1. Configuración de axios con manejo de errores mejorado
         const axiosConfig = {
-          timeout: 10000, // 10 segundos
+          timeout: 10000,
           validateStatus: function (status) {
-            return status < 500; // No lanzar error para respuestas 5xx
+            return status < 500;
           }
         };
   
-        // 2. Carga en paralelo con mejor manejo de errores
         const [invitadosRes, layoutRes] = await Promise.all([
           axios.get("http://localhost:5000/api/invitados", axiosConfig)
             .catch(err => {
               console.warn("Error cargando invitados:", err.message);
-              return { data: [] }; // Retorna datos vacíos si falla
+              return { data: [] };
             }),
           axios.get("http://localhost:5000/api/layout", axiosConfig)
             .catch(err => {
               console.warn("Error cargando layout:", err.message);
-              return { data: null }; // Forzará la creación de nuevo layout
+              return { data: null };
             })
         ]);
   
-        // 3. Procesar invitados
         if (invitadosRes.data) {
           setInvitados(invitadosRes.data);
         }
   
-        // 4. Validar y procesar layout
         let layoutData = layoutRes.data?.espacios || layoutRes.data;
         
         if (!layoutData || layoutData.length !== 55) {
@@ -271,10 +278,9 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
           layoutData = Array.from({ length: 55 }, (_, i) => ({
             id: `espacio-${i}`,
             mesa: null,
-            nMesa: i + 1 // Nuevo campo para número de mesa
+            nMesa: i + 1
           }));
           
-          // Intentar guardar el nuevo layout
           try {
             const { data } = await axios.post(
               "http://localhost:5000/api/layout",
@@ -296,7 +302,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
         console.error("Error crítico:", err);
         setSyncStatus("Error, usando datos locales");
         
-        // Layout de emergencia
         setEspacios(Array.from({ length: 55 }, (_, i) => ({
           id: `espacio-${i}`,
           mesa: null,
@@ -307,7 +312,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
       }
     };
   
-    // Agregar delay mínimo para evitar flashes de carga
     const timer = setTimeout(() => {
       fetchData();
     }, 500);
@@ -315,7 +319,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
     return () => clearTimeout(timer);
   }, [setEspacios]);
   
-  // Segundo useEffect para sincronización (mejorado)
   useEffect(() => {
     const verificarSincronizacion = async () => {
       try {
@@ -323,7 +326,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
           timeout: 8000
         });
         
-        // Validar estructura del layout
         if (res.data?.espacios?.length === 55) {
           return res.data;
         }
@@ -342,7 +344,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
           
           if (datosBackend) {
             setEspacios(prev => {
-              // Comparación profunda para evitar actualizaciones innecesarias
               const needsUpdate = JSON.stringify(prev) !== JSON.stringify(datosBackend.espacios);
               if (needsUpdate) {
                 setSyncStatus("Sincronizando cambios...");
@@ -362,7 +363,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
     return () => clearInterval(syncInterval);
   }, [modoAsignar, setEspacios, loading]);
 
-  
   const getInvitadosRelacionados = useMemo(() => {
     const relacionadosMap = {};
     
@@ -396,7 +396,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
   };
 
   const getInvitadosDisponiblesParaMesa = (mesa) => {
-    // Calcular ocupación actual de la mesa
     const ocupadosActuales = mesa.invitadosAsignados?.reduce((acc, inv) => {
       const niños = inv.acompanantes?.filter(a => a.esNino)?.length || 0;
       const adultos = (inv.acompanantes?.length || 0) - niños + 1;
@@ -405,17 +404,13 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
   
     const capacidadDisponible = mesa.capacidad - ocupadosActuales;
   
-    // Si no hay capacidad, retornar array vacío
     if (capacidadDisponible <= 0) return [];
   
-    // Obtener todos los invitados no asignados
     const todosDisponibles = invitados.filter(
       inv => !invitadosAsignadosIds.includes(inv._id)
     );
   
-    // Si la mesa ya tiene invitados
     if (mesa.invitadosAsignados?.length > 0) {
-      // Encontrar todos los relacionados con los invitados actuales
       const relacionadosEnMesa = new Set();
       
       mesa.invitadosAsignados.forEach(inv => {
@@ -423,19 +418,16 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
         grupo.forEach(id => relacionadosEnMesa.add(id));
       });
   
-      // Filtrar los disponibles que están relacionados
       const relacionadosDisponibles = todosDisponibles.filter(inv => 
         relacionadosEnMesa.has(inv._id)
       );
   
-      // Filtrar los que caben en la capacidad restante
       const relacionadosConEspacio = relacionadosDisponibles.filter(inv => {
         const tamañoInvitado = 1 + (inv.acompanantes?.length || 0) + 
           (inv.boletosExtraAdultos || 0) + (inv.boletosExtraNinos || 0);
         return tamañoInvitado <= capacidadDisponible;
       });
   
-      // Si hay relacionados disponibles, mostrarlos primero
       if (relacionadosConEspacio.length > 0) {
         return [
           ...relacionadosConEspacio,
@@ -450,7 +442,6 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
       }
     }
   
-    // Si no hay invitados en la mesa o no hay relacionados, mostrar todos los que caben
     return todosDisponibles
       .filter(inv => {
         const tamañoInvitado = 1 + (inv.acompanantes?.length || 0) + 
@@ -494,7 +485,7 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
               tipo: plantilla.tipo,
               capacidad: plantilla.tipo === "cuadrada" ? 12 : 10,
               invitadosAsignados: [],
-              nMesa: parseInt(over.id.replace('espacio-', '')) + 1 // Asigna número de mesa basado en posición
+              nMesa: parseInt(over.id.replace('espacio-', '')) + 1
             }
           };
         }
@@ -518,7 +509,7 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
           mesa: {
             ...mesaExistente,
             id: `${mesaExistente.tipo}-${Date.now()}`,
-            nMesa: parseInt(over.id.replace('espacio-', '')) + 1 // Actualiza número de mesa
+            nMesa: parseInt(over.id.replace('espacio-', '')) + 1
           }
         };
 
@@ -638,62 +629,63 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
       </div>
     );
   }
+
   return (
     <DndContext 
       collisionDetection={closestCenter}
       onDragEnd={!modoAsignar ? handleDragEnd : undefined}
       sensors={!modoAsignar ? sensors : undefined}
     >
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-6">
         {/* Header */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-md p-4 md:p-6 mb-4 md:mb-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">Distribución de Mesas</h1>
-              <p className="text-gray-600">Organiza el acomodo de tus invitados</p>
+              <h1 className="text-xl md:text-2xl font-bold text-gray-800">Distribución de Mesas</h1>
+              <p className="text-sm md:text-base text-gray-600">Organiza el acomodo de tus invitados</p>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-50 px-4 py-2 rounded-lg">
-                <span className="text-sm text-gray-600">Estado:</span>
-                <span className="ml-2 font-medium text-blue-600">{syncStatus}</span>
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-3 w-full md:w-auto">
+              <div className="bg-blue-50 px-3 py-1 md:px-4 md:py-2 rounded-lg w-full md:w-auto">
+                <span className="text-xs md:text-sm text-gray-600">Estado:</span>
+                <span className="ml-2 text-xs md:text-sm font-medium text-blue-600">{syncStatus}</span>
               </div>
               
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-auto">
                 <button
                   onClick={() => setModoAsignar(false)}
-                  className={`px-4 py-2 rounded-lg transition-all ${
+                  className={`px-3 py-1 md:px-4 md:py-2 rounded-lg transition-all text-sm md:text-base w-1/2 md:w-auto ${
                     !modoAsignar 
                       ? "bg-blue-600 text-white shadow-md" 
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
-                  Editar Mesas
+                  {isMobileView ? 'Mesas' : 'Editar Mesas'}
                 </button>
                 <button
                   onClick={() => setModoAsignar(true)}
-                  className={`px-4 py-2 rounded-lg transition-all ${
+                  className={`px-3 py-1 md:px-4 md:py-2 rounded-lg transition-all text-sm md:text-base w-1/2 md:w-auto ${
                     modoAsignar 
                       ? "bg-blue-600 text-white shadow-md" 
                       : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                   }`}
                 >
-                  Asignar Invitados
+                  {isMobileView ? 'Invitados' : 'Asignar Invitados'}
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-4">
-            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-              <span className="text-sm text-gray-600">Mesas:</span>
-              <span className="ml-2 font-bold">
+          <div className="mt-3 md:mt-4 flex flex-wrap gap-2 md:gap-4">
+            <div className="bg-white border border-gray-200 rounded-lg p-2 md:p-3 shadow-sm text-xs md:text-sm">
+              <span className="text-gray-600">Mesas:</span>
+              <span className="ml-1 font-bold">
                 {espacios.filter(e => e.mesa).length}/55
               </span>
             </div>
-            <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm">
-              <span className="text-sm text-gray-600">Asientos:</span>
-              <span className="ml-2 font-bold">
+            <div className="bg-white border border-gray-200 rounded-lg p-2 md:p-3 shadow-sm text-xs md:text-sm">
+              <span className="text-gray-600">Asientos:</span>
+              <span className="ml-1 font-bold">
                 {espacios.reduce((acc, esp) => {
                   if (esp.mesa?.tipo === "redonda") return acc + (esp.mesa?.capacidad || 10);
                   if (esp.mesa?.tipo === "cuadrada") return acc + (esp.mesa?.capacidad || 12);
@@ -706,15 +698,19 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
 
         {/* Plantillas de mesas */}
         {!modoAsignar && (
-          <div className="bg-white rounded-xl shadow-md p-4 mb-6">
-            <h2 className="text-lg font-semibold mb-4 text-gray-700">Plantillas de Mesas</h2>
-            <div className="flex flex-wrap gap-6 justify-center md:justify-start">
+          <div className="bg-white rounded-xl shadow-md p-3 md:p-4 mb-4 md:mb-6">
+            <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 text-gray-700">Plantillas de Mesas</h2>
+            <div className="flex flex-wrap gap-3 md:gap-6 justify-center md:justify-start">
               {plantillas.map(mesa => (
                 <div key={mesa.id} className="flex flex-col items-center">
                   <MesaDraggable id={mesa.id} tipo={mesa.tipo} />
-                  <span className="mt-2 text-sm text-gray-600 pt-[14px]">{mesa.label}</span>
+                  <span className="mt-1 md:mt-2 text-xs md:text-sm text-gray-600 pt-[10px] md:pt-[14px]">
+                    {isMobileView ? mesa.label.split(' ')[1] || mesa.label : mesa.label}
+                  </span>
                   {mesa.capacidad && (
-                    <span className="text-xs text-gray-500">{mesa.capacidad} personas</span>
+                    <span className="text-[10px] md:text-xs text-gray-500">
+                      {mesa.capacidad} {isMobileView ? 'pax' : 'personas'}
+                    </span>
                   )}
                 </div>
               ))}
@@ -723,12 +719,12 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
         )}
 
         {/* Área de mesas */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          <h2 className="text-lg font-semibold mb-4 text-gray-700">
+        <div className="bg-white rounded-xl shadow-md p-3 md:p-6 overflow-x-auto">
+          <h2 className="text-base md:text-lg font-semibold mb-3 md:mb-4 text-gray-700">
             {modoAsignar ? "Asignación de Invitados" : "Distribución de Mesas"}
           </h2>
           
-          <div className="grid grid-cols-11 gap-1 p-4 bg-gray-50 rounded-lg">
+          <div className={`grid ${isMobileView ? 'grid-cols-5 gap-0.5' : 'grid-cols-11 gap-1'} p-2 md:p-4 bg-gray-50 rounded-lg`}>
             {espacios.map(esp => (
               <Espacio
                 key={esp.id}
@@ -742,40 +738,40 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
         </div>
 
         {/* Footer */}
-        <div className="mt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-sm text-gray-500">
+        <div className="mt-4 md:mt-6 flex flex-col md:flex-row justify-between items-center gap-3 md:gap-4">
+          <div className="text-xs md:text-sm text-gray-500">
             Última actualización: {new Date().toLocaleTimeString()}
           </div>
           <button
             onClick={guardarDistribucion}
-            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg shadow-md hover:from-green-700 hover:to-green-800 transition-all"
+            className="flex items-center gap-1 md:gap-2 px-4 py-2 md:px-6 md:py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg shadow-md hover:from-green-700 hover:to-green-800 transition-all text-sm md:text-base"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
             </svg>
-            Guardar Distribución
+            {isMobileView ? 'Guardar' : 'Guardar Distribución'}
           </button>
         </div>
 
         {/* Modal para asignar invitados */}
         {showModal && mesaSeleccionada && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 rounded-t-xl">
-                <h3 className="text-xl font-bold text-white">
+              <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-3 md:p-4 rounded-t-xl">
+                <h3 className="text-lg md:text-xl font-bold text-white">
                   Mesa {mesaSeleccionada.nMesa} - {mesaSeleccionada.tipo}
                 </h3>
               </div>
               
-              <div className="p-6">
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <p className="text-sm text-blue-600 font-medium">Capacidad</p>
-                    <p className="text-2xl font-bold text-blue-800">{mesaSeleccionada.capacidad}</p>
+              <div className="p-4 md:p-6">
+                <div className={`grid ${isMobileView ? 'grid-cols-2 gap-2' : 'grid-cols-2 gap-4'} mb-4 md:mb-6`}>
+                  <div className="bg-blue-50 p-2 md:p-4 rounded-lg border border-blue-100">
+                    <p className="text-xs md:text-sm text-blue-600 font-medium">Capacidad</p>
+                    <p className="text-xl md:text-2xl font-bold text-blue-800">{mesaSeleccionada.capacidad}</p>
                   </div>
-                  <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                    <p className="text-sm text-green-600 font-medium">Disponible</p>
-                    <p className="text-2xl font-bold text-green-800">
+                  <div className="bg-green-50 p-2 md:p-4 rounded-lg border border-green-100">
+                    <p className="text-xs md:text-sm text-green-600 font-medium">Disponible</p>
+                    <p className="text-xl md:text-2xl font-bold text-green-800">
                       {mesaSeleccionada.capacidad - 
                        (mesaSeleccionada.invitadosAsignados?.reduce((acc, inv) => {
                          const niños = inv.acompanantes?.filter(a => a.esNino)?.length || 0;
@@ -786,20 +782,20 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
                   </div>
                 </div>
 
-                <div className="mb-6">
-                  <h4 className="font-semibold text-gray-700 mb-3">Invitados asignados:</h4>
+                <div className="mb-4 md:mb-6">
+                  <h4 className="font-semibold text-gray-700 mb-2 md:mb-3 text-sm md:text-base">Invitados asignados:</h4>
                   {mesaSeleccionada.invitadosAsignados?.length ? (
-                    <div className="space-y-3">
+                    <div className="space-y-2 md:space-y-3">
                       {mesaSeleccionada.invitadosAsignados.map(inv => (
-                        <div key={inv._id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <div key={inv._id} className="flex justify-between items-center p-2 md:p-3 bg-gray-50 rounded-lg border border-gray-200">
                           <div>
-                            <p className="font-medium text-gray-800">{inv.nombre}</p>
-                            <div className="flex gap-2 mt-1">
-                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            <p className="font-medium text-gray-800 text-sm md:text-base">{inv.nombre}</p>
+                            <div className="flex gap-1 md:gap-2 mt-1">
+                              <span className="text-xs bg-blue-100 text-blue-800 px-1 py-0.5 md:px-2 md:py-1 rounded">
                                 {inv.acompanantes?.filter(a => !a.esNino).length + 1} adultos
                               </span>
                               {inv.acompanantes?.filter(a => a.esNino).length > 0 && (
-                                <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">
+                                <span className="text-xs bg-amber-100 text-amber-800 px-1 py-0.5 md:px-2 md:py-1 rounded">
                                   {inv.acompanantes?.filter(a => a.esNino).length} niños
                                 </span>
                               )}
@@ -807,9 +803,9 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
                           </div>
                           <button
                             onClick={() => quitarInvitado(inv._id)}
-                            className="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 p-0.5 md:p-1 rounded-full hover:bg-red-50"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
                               <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                             </svg>
                           </button>
@@ -817,73 +813,72 @@ export default function Mesas({ espacios, setEspacios, updateEspacios }) {
                       ))}
                     </div>
                   ) : (
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-center">
-                      <p className="text-gray-500 italic">No hay invitados asignados a esta mesa</p>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
+                      <p className="text-gray-500 italic text-sm md:text-base">No hay invitados asignados a esta mesa</p>
                     </div>
                   )}
                 </div>
 
-                <div className="mb-6">
-  <h4 className="font-semibold text-gray-700 mb-3">Agregar invitados:</h4>
-  <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-    {getInvitadosDisponiblesParaMesa(mesaSeleccionada).length > 0 ? (
-      getInvitadosDisponiblesParaMesa(mesaSeleccionada)
-        .map(inv => {
-          const adultos = 1 + (inv.acompanantes?.filter(a => !a.esNino).length || 0) + (inv.boletosExtraAdultos || 0);
-          const niños = (inv.acompanantes?.filter(a => a.esNino).length || 0) + (inv.boletosExtraNinos || 0);
-          const total = adultos + niños;
-          
-          // Verificar si está relacionado con alguien en la mesa
-          const estaRelacionado = mesaSeleccionada.invitadosAsignados?.some(
-            invMesa => {
-              const grupoRelacionado = getGruposRelacionados(invMesa._id);
-              return grupoRelacionado.includes(inv._id);
-            }
-          );
+                <div className="mb-4 md:mb-6">
+                  <h4 className="font-semibold text-gray-700 mb-2 md:mb-3 text-sm md:text-base">Agregar invitados:</h4>
+                  <div className={`space-y-1 md:space-y-2 ${isMobileView ? 'max-h-40' : 'max-h-60'} overflow-y-auto pr-1 md:pr-2`}>
+                    {getInvitadosDisponiblesParaMesa(mesaSeleccionada).length > 0 ? (
+                      getInvitadosDisponiblesParaMesa(mesaSeleccionada)
+                        .map(inv => {
+                          const adultos = 1 + (inv.acompanantes?.filter(a => !a.esNino).length || 0) + (inv.boletosExtraAdultos || 0);
+                          const niños = (inv.acompanantes?.filter(a => a.esNino).length || 0) + (inv.boletosExtraNinos || 0);
+                          const total = adultos + niños;
+                          
+                          const estaRelacionado = mesaSeleccionada.invitadosAsignados?.some(
+                            invMesa => {
+                              const grupoRelacionado = getGruposRelacionados(invMesa._id);
+                              return grupoRelacionado.includes(inv._id);
+                            }
+                          );
 
-          return (
-            <button
-              key={inv._id}
-              onClick={() => asignarInvitado(inv)}
-              className={`w-full text-left p-3 rounded-lg border transition-all ${
-                estaRelacionado
-                  ? 'bg-purple-50 border-purple-200 hover:bg-purple-100'
-                  : 'bg-white border-gray-200 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-800">{inv.nombre}</span>
-                <span className="text-xs bg-gray-100 text-gray-800 px-2 py-1 rounded-full">
-                  {total} {total === 1 ? 'persona' : 'personas'}
-                  {estaRelacionado && (
-                    <span className="ml-1 text-purple-600">⭐</span>
-                  )}
-                </span>
-              </div>
-              {estaRelacionado && (
-                <p className="text-xs text-purple-600 mt-1 text-left">
-                  Relacionado con otros en esta mesa
-                </p>
-              )}
-            </button>
-          );
-        })
-    ) : (
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-center">
-        <p className="text-gray-500 italic">
-          {mesaSeleccionada.capacidad === ocupadosActuales 
-            ? "La mesa está llena" 
-            : "No hay invitados disponibles para esta capacidad"}
-        </p>
-      </div>
-    )}
-  </div>
-</div>
+                          return (
+                            <button
+                              key={inv._id}
+                              onClick={() => asignarInvitado(inv)}
+                              className={`w-full text-left p-2 md:p-3 rounded-lg border transition-all text-xs md:text-sm ${
+                                estaRelacionado
+                                  ? 'bg-purple-50 border-purple-200 hover:bg-purple-100'
+                                  : 'bg-white border-gray-200 hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex justify-between items-center">
+                                <span className="font-medium text-gray-800 truncate mr-2">{inv.nombre}</span>
+                                <span className="text-xs bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                                  {total} {isMobileView ? 'pax' : 'personas'}
+                                  {estaRelacionado && (
+                                    <span className="ml-0.5 text-purple-600">⭐</span>
+                                  )}
+                                </span>
+                              </div>
+                              {estaRelacionado && (
+                                <p className="text-xs text-purple-600 mt-0.5 text-left truncate">
+                                  Relacionado con otros en esta mesa
+                                </p>
+                              )}
+                            </button>
+                          );
+                        })
+                    ) : (
+                      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 text-center">
+                        <p className="text-gray-500 italic text-sm md:text-base">
+                          {mesaSeleccionada.capacidad === ocupadosActuales 
+                            ? "La mesa está llena" 
+                            : "No hay invitados disponibles para esta capacidad"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
 
                 <div className="flex justify-end">
                   <button
                     onClick={() => setShowModal(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+                    className="px-3 py-1 md:px-4 md:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm md:text-base"
                   >
                     Cerrar
                   </button>
