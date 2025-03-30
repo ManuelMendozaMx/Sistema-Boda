@@ -1,7 +1,4 @@
 const mongoose = require("mongoose");
-// Añade esta variable al inicio del archivo, fuera del schema
-let initialized = false;
-let initializationPromise = null;
 
 
 const MesaSchema = new mongoose.Schema({
@@ -84,7 +81,6 @@ LayoutSchema.statics.init = async function() {
       console.error("❌ Error inicializando layout:", err);
       throw err;
     } finally {
-      // Limpia la promesa solo para errores fatales
       initializationPromise = null;
     }
   })();
